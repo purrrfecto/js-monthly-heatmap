@@ -1,8 +1,13 @@
 
-hella chatgpt!
+## Live Demo
+https://purrrfecto.github.io/js-monthly-heatmap/
 
-javascript to create monthly heatmap to visualize events in each day
-also runs as local file
+### hella thanks chatgpt!
+
+- javascript to create monthly heatmap to visualize how many events occurance in each day
+- also runs as local html file
+- used to see what day is more busy and what day is not
+
 
 ### ✨ Features Recap
 
