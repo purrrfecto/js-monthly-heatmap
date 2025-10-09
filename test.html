@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Multi-Month Heatmap</title>
+  <title>Monthly Heatmap (Multi-Month, YlGn)</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
@@ -11,10 +11,12 @@
       flex-direction: column;
       align-items: center;
       margin: 40px;
+      background: #fafafa;
     }
     textarea {
       width: 360px;
       height: 120px;
+      margin-bottom: 10px;
     }
     #heatmaps {
       display: flex;
@@ -27,6 +29,10 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
     .month-label {
       font-weight: bold;
@@ -46,10 +52,35 @@
       color: white;
       font-size: 12px;
     }
+    .weekday-header {
+      font-size: 11px;
+      text-align: center;
+      margin-bottom: 4px;
+      color: #555;
+    }
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+    }
+    .legend-bar {
+      height: 12px;
+      width: 120px;
+      background: linear-gradient(to right, #ffffcc, #006837);
+      border-radius: 6px;
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 120px;
+      font-size: 10px;
+      color: #333;
+    }
   </style>
 </head>
 <body>
-  <h2>📅 Multi-Month Heatmap</h2>
+  <h2>🌿 Multi-Month Heatmap (YlGn)</h2>
 
   <textarea id="csvInput">date,count
 2023-12-06,1
@@ -61,6 +92,7 @@
   <button id="renderBtn">Render Heatmaps</button>
 
   <div id="heatmaps"></div>
+  <div id="legend"></div>
 
   <script>
     document.getElementById('renderBtn').addEventListener('click', renderAllHeatmaps);
@@ -75,13 +107,10 @@
       if (parsed.length === 0) return;
 
       // Group data by month-year
-      const grouped = d3.group(parsed, d =>
-        d3.timeFormat("%Y-%m")(d.date)
-      );
-
+      const grouped = d3.group(parsed, d => d3.timeFormat("%Y-%m")(d.date));
       const allCounts = parsed.map(d => d.count);
       const maxValue = d3.max(allCounts);
-      const color = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, maxValue || 1]);
+      const color = d3.scaleSequential(d3.interpolateYlGn).domain([0, maxValue || 1]);
 
       const container = d3.select("#heatmaps");
       container.selectAll("*").remove();
@@ -96,14 +125,18 @@
           data.map(d => [d3.timeFormat("%Y-%m-%d")(d.date), d.count])
         );
 
-        const days = d3.range(1, daysInMonth + 1).map(day => {
+        const firstDayWeekday = new Date(yearNum, monthNum, 1).getDay();
+
+        // Fill day data aligned by weekday
+        const days = [];
+        for (let i = 0; i < firstDayWeekday; i++) {
+          days.push(null); // Empty leading cells
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(yearNum, monthNum, day);
           const key = d3.timeFormat("%Y-%m-%d")(date);
-          return {
-            day,
-            count: valueMap.get(key) || 0
-          };
-        });
+          days.push({ day, count: valueMap.get(key) || 0 });
+        }
 
         // Create month container
         const monthDiv = container.append("div")
@@ -113,19 +146,46 @@
           .attr("class", "month-label")
           .text(`${year}-${monthStr}`);
 
+        // Add weekday headers
+        const weekdayHeader = monthDiv.append("div")
+          .attr("class", "grid weekday-header");
+        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(d =>
+          weekdayHeader.append("div").text(d)
+        );
+
+        // Create grid
         const grid = monthDiv.append("div")
           .attr("class", "grid");
 
         days.forEach(d => {
-          grid.append("div")
-            .attr("class", "day")
-            .style("background", color(d.count))
-            .text(d.day);
+          if (d === null) {
+            grid.append("div").style("visibility", "hidden");
+          } else {
+            grid.append("div")
+              .attr("class", "day")
+              .style("background", color(d.count))
+              .text(d.day);
+          }
         });
       }
+
+      renderLegend(maxValue);
     }
 
-    // Auto-render once on load
+    function renderLegend(maxValue) {
+      const legend = d3.select("#legend");
+      legend.selectAll("*").remove();
+
+      const legendDiv = legend.append("div").attr("class", "legend");
+      legendDiv.append("div").attr("class", "legend-bar")
+        .style("background", "linear-gradient(to right, #ffffcc, #006837)");
+
+      const labels = legendDiv.append("div").attr("class", "legend-labels");
+      labels.append("span").text("0");
+      labels.append("span").text(maxValue || 1);
+    }
+
+    // Auto-render on load
     renderAllHeatmaps();
   </script>
 </body>
