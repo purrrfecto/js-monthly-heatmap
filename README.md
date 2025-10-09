@@ -1,4 +1,29 @@
 
-hella chatgpt
+hella chatgpt!
+
 javascript to create monthly heatmap to visualize events in each day
-take csv for now
+also runs as local file
+
+### ✨ Features Recap
+
+| Feature                    | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| ✅ **Google Sheets Paste**  | Accepts tab-separated or comma-separated input |
+| ✅ **Multi-Month Grouping** | Each month displayed separately                |
+| ✅ **Weekday Alignment**    | Days start on correct weekday                  |
+| ✅ **YlGn Gradient**        | Yellow → Green color scale                     |
+| ✅ **Legend**               | Dynamic, scaled to max count                   |
+| ✅ **Interactive Tooltip**  | Hover or tap a day to see exact date + count   |
+
+---
+
+### 🧩 Example Input (directly paste from Sheets)
+
+| date       | count |
+| ---------- | ----- |
+| 2023-12-06 | 1     |
+| 2023-12-14 | 2     |
+| 2024-01-01 | 3     |
+| 2024-01-05 | 1     |
+
+Just copy those cells → paste into the textbox → click **Render Heatmaps** ✅
