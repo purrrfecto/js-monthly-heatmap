@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Google Sheets-Compatible Monthly Heatmap (YlGn)</title>
+  <title>Interactive Monthly Heatmap (YlGn + Tooltip)</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
@@ -35,6 +35,7 @@
       padding: 15px;
       border-radius: 12px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
     }
     .month-label {
       font-weight: bold;
@@ -53,6 +54,13 @@
       line-height: 30px;
       color: white;
       font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .day:hover {
+      outline: 2px solid #333;
+      transform: scale(1.05);
+      z-index: 2;
     }
     .weekday-header {
       font-size: 11px;
@@ -79,12 +87,27 @@
       font-size: 10px;
       color: #333;
     }
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      z-index: 10;
+      transform: translate(-50%, -120%);
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
   </style>
 </head>
 <body>
-  <h2>🌿 Google Sheets-Compatible Monthly Heatmap (YlGn)</h2>
-
-  <p>📋 Tip: Copy 2-column data (date + count) from Google Sheets and paste below.</p>
+  <h2>🌿 Interactive Monthly Heatmap (YlGn + Tooltip)</h2>
+  <p>📋 Copy 2-column data (date + count) directly from Google Sheets.</p>
 
   <textarea id="csvInput">date	count
 2023-12-06	1
@@ -99,10 +122,124 @@
   <div id="heatmaps"></div>
   <div id="legend"></div>
 
+  <div id="tooltip" class="tooltip"></div>
+
   <script>
+    const tooltip = d3.select("#tooltip");
+
     document.getElementById('renderBtn').addEventListener('click', renderAllHeatmaps);
 
     function parseFlexibleCSV(text) {
-      // Normalize tabs from Google Sheets into commas
       let cleaned = text
-        .replace(/\t/g,
+        .replace(/\t/g, ",")     // tabs → commas
+        .replace(/\r\n/g, "\n")
+        .trim();
+      try {
+        return d3.csvParse(cleaned, d => ({
+          date: new Date(d.date?.trim()),
+          count: +d.count
+        }));
+      } catch (e) {
+        console.error("CSV parse error:", e);
+        return [];
+      }
+    }
+
+    function renderAllHeatmaps() {
+      const csvText = document.getElementById('csvInput').value.trim();
+      const parsed = parseFlexibleCSV(csvText);
+
+      if (parsed.length === 0) {
+        alert("No valid data found. Please paste date + count columns.");
+        return;
+      }
+
+      const grouped = d3.group(parsed, d => d3.timeFormat("%Y-%m")(d.date));
+      const allCounts = parsed.map(d => d.count);
+      const maxValue = d3.max(allCounts);
+      const color = d3.scaleSequential(d3.interpolateYlGn).domain([0, maxValue || 1]);
+
+      const container = d3.select("#heatmaps");
+      container.selectAll("*").remove();
+
+      for (const [monthKey, data] of grouped) {
+        const [year, monthStr] = monthKey.split("-");
+        const yearNum = +year;
+        const monthNum = +monthStr - 1;
+        const daysInMonth = new Date(yearNum, monthNum + 1, 0).getDate();
+
+        const valueMap = new Map(data.map(d => [d3.timeFormat("%Y-%m-%d")(d.date), d.count]));
+        const firstDayWeekday = new Date(yearNum, monthNum, 1).getDay();
+
+        const days = [];
+        for (let i = 0; i < firstDayWeekday; i++) days.push(null);
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(yearNum, monthNum, day);
+          const key = d3.timeFormat("%Y-%m-%d")(date);
+          days.push({ day, date, count: valueMap.get(key) || 0 });
+        }
+
+        const monthDiv = container.append("div").attr("class", "month-container");
+        monthDiv.append("div").attr("class", "month-label").text(`${year}-${monthStr}`);
+
+        const weekdayHeader = monthDiv.append("div").attr("class", "grid weekday-header");
+        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(d => weekdayHeader.append("div").text(d));
+
+        const grid = monthDiv.append("div").attr("class", "grid");
+        days.forEach(d => {
+          if (d === null) {
+            grid.append("div").style("visibility", "hidden");
+          } else {
+            const cell = grid.append("div")
+              .attr("class", "day")
+              .style("background", color(d.count))
+              .text(d.day);
+
+            cell.on("mouseenter", (event) => showTooltip(event, d))
+                .on("mousemove", (event) => moveTooltip(event))
+                .on("mouseleave", hideTooltip)
+                .on("click", (event) => showTooltip(event, d)); // tap support
+          }
+        });
+      }
+
+      renderLegend(maxValue);
+    }
+
+    function showTooltip(event, d) {
+      const dateStr = d3.timeFormat("%Y-%m-%d")(d.date);
+      tooltip
+        .style("opacity", 1)
+        .html(`<strong>${dateStr}</strong><br>Count: ${d.count}`)
+        .style("left", (event.pageX) + "px")
+        .style("top", (event.pageY - 20) + "px");
+    }
+
+    function moveTooltip(event) {
+      tooltip
+        .style("left", (event.pageX) + "px")
+        .style("top", (event.pageY - 20) + "px");
+    }
+
+    function hideTooltip() {
+      tooltip.style("opacity", 0);
+    }
+
+    function renderLegend(maxValue) {
+      const legend = d3.select("#legend");
+      legend.selectAll("*").remove();
+
+      const legendDiv = legend.append("div").attr("class", "legend");
+      legendDiv.append("div").attr("class", "legend-bar")
+        .style("background", "linear-gradient(to right, #ffffcc, #006837)");
+
+      const labels = legendDiv.append("div").attr("class", "legend-labels");
+      const steps = 5;
+      const values = d3.range(0, steps).map(i => Math.round(i * (maxValue / (steps - 1))));
+      labels.selectAll("span").data(values).enter().append("span").text(d => d);
+    }
+
+    renderAllHeatmaps();
+  </script>
+</body>
+</html>
