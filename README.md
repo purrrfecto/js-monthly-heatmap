@@ -32,3 +32,11 @@ https://purrrfecto.github.io/js-monthly-heatmap/
 | 2024-01-05 | 1     |
 
 Just copy those cells → paste into the textbox → click **Render Heatmaps** ✅
+
+---
+
+### Extra
+- Export and save the calendar as .ics file 
+- in ```icsEventCount.py```, point ```ics_file_path``` to the downloaded .ics file
+- ```python3 -m icsEventCount.py```
+- terminal should output the date and counts
